@@ -27,10 +27,14 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 200,
+  windowMs: env.rateLimit.windowMs,
+  limit: env.rateLimit.limit,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests. Please wait a moment and try again.'
+  }
 }));
 
 app.get('/health', (_req, res) => {

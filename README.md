@@ -8,7 +8,7 @@ FoodDash is a full-stack food delivery application with a customer-facing React 
 - Customer profile editing and saved delivery addresses
 - Restaurant discovery and filtering
 - Restaurant details, menus, and reviews
-- Cart and checkout flow
+- Cart and checkout flow with one-restaurant cart protection
 - Customer order history and order tracking
 - Admin login with separate admin JWT authentication
 - Admin dashboard, analytics, user management, restaurant management, delivery-agent management, order assignment, and order management
@@ -139,6 +139,8 @@ DB_CONNECTION_LIMIT=10
 JWT_SECRET=replace_with_a_long_secret_at_least_32_chars
 JWT_EXPIRES_IN=7d
 BCRYPT_ROUNDS=10
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=2000
 
 ADMIN_EMAIL=your_admin_email@example.com
 ADMIN_PASSWORD=your_private_admin_password
@@ -252,9 +254,66 @@ npm run db:create-admin
 
 Admin credentials are stored securely in MySQL using bcrypt hashes. If you forget the admin password, update `ADMIN_PASSWORD` in `backend/.env` and run `npm run db:create-admin` again.
 
+## Demo Credentials And Password Hashes
+
+FoodDash stores passwords as bcrypt hashes in MySQL. A hash is not reversible, so the app never decodes a stored password. During login, the backend compares the typed password with the stored hash using bcrypt.
+
+The demo passwords below are known because they are intentionally documented for local development and seeded data. They were not recovered from the hashes.
+
+Seeded restaurant owner accounts:
+
+```text
+spiceroute@example.com  / restaurant@123
+wokexpress@example.com  / restaurant@123
+greenbowl@example.com   / restaurant@123
+```
+
+Seeded customer accounts use the password from the seed hash. If you are unsure of a customer password, create a fresh customer from the app or reset the seed data.
+
+For private admin credentials, use your own values in `backend/.env` and run:
+
+```bash
+cd backend
+npm run db:create-admin
+```
+
+## Delivery Agent Management
+
+Delivery agents do not have a separate login dashboard in the current version. They are managed by the admin team from the admin dashboard.
+
+Delivery-agent flow:
+
+```text
+/admin/login           -> admin logs in
+/admin/delivery-agents -> admin creates, edits, deletes, and tracks delivery agents
+/admin/orders          -> admin assigns available delivery agents to orders
+/orders/:id            -> customer sees assigned delivery agent on order tracking
+```
+
+Delivery-agent features currently included:
+
+- Admin can register delivery agents with name, email, phone, vehicle type, license number, and current location
+- Admin can mark agents available or offline
+- Admin can assign an available delivery agent to an order from the order management page
+- Assigned delivery agents are marked unavailable until the order is delivered or cancelled
+- Delivered orders update the delivery agent's `total_deliveries` through the database trigger
+
+If you want a separate delivery-agent login and dashboard later, it can be added as a new role with pages like `/delivery/login`, `/delivery/orders`, and `/delivery/profile`.
+
 ## Restaurant Owner Dashboard
 
 Restaurant owners have their own dashboard separate from customer and admin areas.
+
+Restaurant registration and restaurant login are two entry points into the same restaurant-owner system:
+
+```text
+/restaurant/register -> submit a new restaurant for approval
+/admin/restaurants   -> admin approves or rejects the restaurant
+/restaurant/login    -> approved restaurant owner logs in
+/restaurant          -> restaurant owner dashboard
+```
+
+After login, all restaurant-owner features are managed from one dashboard area.
 
 Open:
 
@@ -285,7 +344,7 @@ Restaurant owner pages:
 
 Restaurant owners can only access their own restaurant data. The backend signs restaurant-owner JWTs with `role: "restaurant"` and all restaurant-owner APIs are scoped to `req.user.sub`, which is the logged-in restaurant id.
 
-New restaurants can self-register at `/restaurant/register`. These registrations are saved as pending listings, so an admin must approve the restaurant before it appears in customer search and before the owner uses the live dashboard.
+New restaurants can self-register at `/restaurant/register`. These registrations are saved as pending listings, so an admin must approve the restaurant before it appears in customer search and before the owner uses the live dashboard. Duplicate restaurant emails are rejected with a clear registration error.
 
 ## Backend Scripts
 
@@ -402,6 +461,18 @@ Customer routes that require login use:
 ```text
 Authorization: Bearer <customer_jwt_token>
 ```
+
+Customer-only routes reject admin and restaurant-owner JWTs even if the token is otherwise valid.
+
+Restaurant-owner routes except login require:
+
+```text
+Authorization: Bearer <restaurant_jwt_token>
+```
+
+Public restaurant detail and menu routes only return approved, non-deleted restaurants. Pending restaurant registrations are visible to admins but not to public customer browsing.
+
+Delivery-agent records are managed only through admin routes. There is no public `/api/delivery-agents` endpoint because agent email, phone, and license details are private operational data.
 
 ## Database Guide
 
@@ -644,10 +715,22 @@ Stores admin users separately from customers. Admin passwords are bcrypt-hashed 
 6. The backend creates multiple rows in `orderitems`, one per cart item.
 7. The `trg_orderitems_before_insert` trigger calculates each `orderitems.subtotal`.
 8. The backend creates or updates a row in `payments`.
-9. Admins can update order status from the admin panel.
-10. When an order becomes delivered, `trg_orders_after_update` increments the delivery agent's `total_deliveries`.
-11. A customer can review the delivered order.
-12. When a review is inserted, `trg_reviews_after_insert` recalculates the restaurant's `avg_rating`.
+9. Admins can update order status from the admin panel using the allowed order lifecycle.
+10. Admins can assign available delivery agents; assigned agents become unavailable while handling an active order.
+11. When an order becomes delivered or cancelled, the backend marks the assigned delivery agent available again.
+12. When an order becomes delivered, `trg_orders_after_update` increments the delivery agent's `total_deliveries`.
+13. A customer can review the delivered order.
+14. When a review is inserted, `trg_reviews_after_insert` recalculates the restaurant's `avg_rating`.
+
+### Order Status Lifecycle
+
+FoodDash prevents broken order flows by allowing only forward movement through the lifecycle:
+
+```text
+pending -> confirmed -> preparing -> ready -> picked_up -> delivered
+```
+
+Cancellation is allowed before delivery. Restaurant owners can move orders from `pending` to `confirmed`, then `preparing`, then `ready`, or cancel before pickup. Admins can continue the delivery side by assigning agents and moving orders through `picked_up` and `delivered`.
 
 ### Views
 
@@ -838,6 +921,13 @@ Frontend cannot reach backend:
 - Make sure the backend is running on `http://localhost:5000`.
 - Check `frontend/.env` has `VITE_API_BASE_URL=http://localhost:5000/api`.
 - Make sure `CORS_ORIGIN` in `backend/.env` includes the frontend URL.
+
+Login shows `429 Too Many Requests`:
+
+- This is the backend rate limiter protecting the API.
+- In development, the default limit is `2000` requests per 15 minutes.
+- If needed, increase `RATE_LIMIT_MAX` in `backend/.env` and restart the backend.
+- In production, keep a stricter value such as `200`.
 
 Admin login fails:
 

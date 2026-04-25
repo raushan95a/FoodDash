@@ -21,3 +21,5 @@ mysql -u root -p fooddash < database/migrations/004_create_customer_addresses.sq
 ```
 
 Seeded restaurant owners can log in with their restaurant email and the demo password `restaurant@123`.
+
+The database stores only bcrypt password hashes. The demo password is documented for local development; it is not decoded from the hash.

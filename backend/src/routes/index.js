@@ -5,7 +5,6 @@ const restaurantRoutes = require('./restaurantRoutes');
 const orderRoutes = require('./orderRoutes');
 const paymentRoutes = require('./paymentRoutes');
 const reviewRoutes = require('./reviewRoutes');
-const deliveryAgentRoutes = require('./deliveryAgentRoutes');
 const adminRoutes = require('./adminRoutes');
 const restaurantOwnerRoutes = require('./restaurantOwnerRoutes');
 
@@ -17,7 +16,6 @@ router.use('/restaurants', restaurantRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/reviews', reviewRoutes);
-router.use('/delivery-agents', deliveryAgentRoutes);
 router.use('/admin', adminRoutes);
 router.use('/restaurant-owner', restaurantOwnerRoutes);
 

@@ -36,10 +36,10 @@ npm run db:create-admin
 - `POST /api/restaurants`
 - `GET /api/restaurants/:id`
 - `GET /api/restaurants/:id/menu`
+- `GET /api/restaurants/:id/reviews`
 - `POST /api/orders`
 - `GET /api/orders/my-orders`
 - `GET /api/orders/:id`
-- `PATCH /api/orders/:id/status`
 - `POST /api/payments`
 - `POST /api/reviews`
 - `POST /api/restaurant-owner/auth/login`
@@ -76,6 +76,8 @@ ADMIN_PASSWORD=your_private_admin_password
 ADMIN_NAME=FoodDash Admin
 ```
 
+Admin passwords are stored as bcrypt hashes. The original password cannot be decoded from the hash, so update `ADMIN_PASSWORD` and rerun `npm run db:create-admin` if you need to reset it.
+
 ### Admin Routes
 
 - `POST /api/admin/auth/login`
@@ -108,6 +110,16 @@ Authorization: Bearer <admin_jwt_token>
 
 Customer tokens cannot access admin APIs because admin routes use JWT role checks.
 
+Customer-only APIs also use JWT role checks, so admin and restaurant-owner tokens cannot access customer profile, order, payment, or review endpoints.
+
+Delivery agents are managed only through admin routes. There is no public `/api/delivery-agents` route because delivery-agent contact and license details are private.
+
+Admin order updates enforce the normal order lifecycle. Admins can assign available delivery agents, assigned agents are marked unavailable during active deliveries, and agents are released when the order is delivered or cancelled.
+
+Public restaurant detail and menu APIs only return approved, non-deleted restaurants. Pending restaurant registrations are visible through admin restaurant management only.
+
+Public restaurant registration rejects duplicate restaurant emails with a friendly conflict response.
+
 ## Restaurant Owner System
 
 Restaurant owners have a separate dashboard and JWT role from customers and admins.
@@ -133,6 +145,8 @@ wokexpress@example.com
 greenbowl@example.com
 ```
 
+These demo passwords are known because they are intentionally documented for local development. The database still stores bcrypt hashes, and the backend verifies login with bcrypt comparison rather than decoding any password.
+
 ### Restaurant Owner Routes
 
 - `POST /api/restaurant-owner/auth/login`
@@ -154,3 +168,5 @@ Authorization: Bearer <restaurant_jwt_token>
 ```
 
 Restaurant-owner APIs are scoped to the logged-in restaurant id, so each restaurant can only access its own profile, menu, orders, and analytics.
+
+Restaurant owners can update only restaurant-controlled order statuses: `pending -> confirmed -> preparing -> ready`, with cancellation allowed before pickup. Delivery statuses such as `picked_up` and `delivered` stay under admin operations.

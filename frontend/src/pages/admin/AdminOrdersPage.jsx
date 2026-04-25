@@ -20,24 +20,30 @@ export default function AdminOrdersPage() {
       .catch((err) => setError(err.message));
   }, [filters]);
 
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
-
-  useEffect(() => {
+  const loadAgents = useCallback(() => {
     getAdminDeliveryAgents({ status: 'available' })
       .then((response) => setAgents(response.data))
       .catch((err) => setError(err.message));
   }, []);
 
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  useEffect(() => {
+    loadAgents();
+  }, [loadAgents]);
+
   async function changeStatus(orderId, status) {
     await updateOrderStatus(orderId, status);
     loadOrders();
+    loadAgents();
   }
 
   async function assignAgent(order, deliveryAgentId) {
     await updateOrderStatus(order.order_id, order.status, deliveryAgentId);
     loadOrders();
+    loadAgents();
   }
 
   return (
@@ -69,7 +75,11 @@ export default function AdminOrdersPage() {
                 <td>{formatCurrency(order.total_amount)}</td>
                 <td><span className={`status-pill ${order.status}`}>{order.status.replace('_', ' ')}</span></td>
                 <td>
-                  <select value={order.delivery_agent_id || ''} onChange={(event) => assignAgent(order, event.target.value)}>
+                  <select
+                    value={order.delivery_agent_id || ''}
+                    onChange={(event) => assignAgent(order, event.target.value)}
+                    disabled={['delivered', 'cancelled'].includes(order.status)}
+                  >
                     <option value="">Unassigned</option>
                     {order.delivery_agent_id && !agents.some((agent) => agent.agent_id === order.delivery_agent_id) && (
                       <option value={order.delivery_agent_id}>{order.delivery_agent_name || 'Assigned agent'}</option>

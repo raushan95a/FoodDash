@@ -42,6 +42,22 @@ async function getRestaurant(id) {
     `SELECT restaurant_id, name, owner_name, email, phone, address, city, pincode,
       cuisine_type, description, avg_rating, delivery_fee, is_open, is_approved
      FROM restaurants
+     WHERE restaurant_id = :id AND is_approved = 1 AND deleted_at IS NULL`,
+    { id }
+  );
+
+  if (!restaurant) {
+    throw new AppError('Restaurant not found', 404);
+  }
+
+  return restaurant;
+}
+
+async function getRegisteredRestaurant(id) {
+  const [restaurant] = await query(
+    `SELECT restaurant_id, name, owner_name, email, phone, address, city, pincode,
+      cuisine_type, description, avg_rating, delivery_fee, is_open, is_approved
+     FROM restaurants
      WHERE restaurant_id = :id AND deleted_at IS NULL`,
     { id }
   );
@@ -54,6 +70,15 @@ async function getRestaurant(id) {
 }
 
 async function createRestaurant(payload) {
+  const [existing] = await query(
+    'SELECT restaurant_id FROM restaurants WHERE email = :email AND deleted_at IS NULL LIMIT 1',
+    { email: payload.email }
+  );
+
+  if (existing) {
+    throw new AppError('Restaurant email is already registered', 409);
+  }
+
   const passwordHash = payload.owner_password
     ? await bcrypt.hash(payload.owner_password, Number(process.env.BCRYPT_ROUNDS || 10))
     : null;
@@ -69,7 +94,7 @@ async function createRestaurant(payload) {
     }
   );
 
-  return getRestaurant(result.insertId);
+  return getRegisteredRestaurant(result.insertId);
 }
 
 async function getMenu(restaurantId) {
@@ -84,29 +109,9 @@ async function getMenu(restaurantId) {
   );
 }
 
-async function createMenuItem(restaurantId, payload) {
-  await getRestaurant(restaurantId);
-  const result = await query(
-    `INSERT INTO menuitems
-      (restaurant_id, item_name, description, price, category, image_url, is_veg, is_available)
-     VALUES
-      (:restaurant_id, :item_name, :description, :price, :category, :image_url, :is_veg, :is_available)`,
-    {
-      restaurant_id: restaurantId,
-      ...payload,
-      description: payload.description || null,
-      image_url: payload.image_url || null
-    }
-  );
-
-  const [item] = await query('SELECT * FROM menuitems WHERE item_id = :id', { id: result.insertId });
-  return item;
-}
-
 module.exports = {
   listRestaurants,
   getRestaurant,
   createRestaurant,
-  getMenu,
-  createMenuItem
+  getMenu
 };

@@ -21,11 +21,6 @@ async function getMenu(req, res) {
   res.json({ success: true, data });
 }
 
-async function createMenuItem(req, res) {
-  const data = await restaurantService.createMenuItem(Number(req.params.id), req.body);
-  res.status(201).json({ success: true, data });
-}
-
 async function getReviews(req, res) {
   const data = await reviewService.listRestaurantReviews(Number(req.params.id));
   res.json({ success: true, data });
@@ -36,6 +31,5 @@ module.exports = {
   getRestaurant,
   createRestaurant,
   getMenu,
-  createMenuItem,
   getReviews
 };

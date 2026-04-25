@@ -2,7 +2,7 @@ const { query, transaction } = require('../database/connection');
 const AppError = require('../utils/AppError');
 
 async function createOrder(customerId, payload) {
-  return transaction(async (connection) => {
+  const orderId = await transaction(async (connection) => {
     const [restaurants] = await connection.execute(
       'SELECT restaurant_id, delivery_fee, is_open FROM restaurants WHERE restaurant_id = ? AND is_approved = 1',
       [payload.restaurant_id]
@@ -79,8 +79,10 @@ async function createOrder(customerId, payload) {
       [orderId, customerId, total, payload.payment_method, payload.payment_method === 'cash' ? 'pending' : 'success']
     );
 
-    return getOrderById(orderId, customerId);
+    return orderId;
   });
+
+  return getOrderById(orderId, customerId);
 }
 
 async function getOrderById(orderId, customerId = null) {
@@ -127,34 +129,8 @@ async function listCustomerOrders(customerId) {
   );
 }
 
-async function updateOrderStatus(orderId, payload) {
-  const fields = ['status = :status'];
-  const params = { orderId, status: payload.status };
-
-  if (payload.delivery_agent_id !== undefined) {
-    fields.push('delivery_agent_id = :delivery_agent_id');
-    params.delivery_agent_id = payload.delivery_agent_id;
-  }
-
-  if (payload.status === 'delivered') {
-    fields.push('actual_delivery_time = NOW()');
-  }
-
-  const result = await query(
-    `UPDATE orders SET ${fields.join(', ')} WHERE order_id = :orderId`,
-    params
-  );
-
-  if (!result.affectedRows) {
-    throw new AppError('Order not found', 404);
-  }
-
-  return getOrderById(orderId);
-}
-
 module.exports = {
   createOrder,
   getOrderById,
-  listCustomerOrders,
-  updateOrderStatus
+  listCustomerOrders
 };

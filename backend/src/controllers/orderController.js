@@ -15,14 +15,8 @@ async function getOrder(req, res) {
   res.json({ success: true, data });
 }
 
-async function updateStatus(req, res) {
-  const data = await orderService.updateOrderStatus(Number(req.params.id), req.body);
-  res.json({ success: true, data });
-}
-
 module.exports = {
   createOrder,
   listMyOrders,
-  getOrder,
-  updateStatus
+  getOrder
 };

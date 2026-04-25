@@ -1,3 +1,4 @@
+import { Home, Mail, MapPin, Phone, ShoppingBag, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -120,21 +121,41 @@ export default function ProfilePage() {
     }
   }
 
+  const fullName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'FoodDash customer';
+
   return (
     <section className="section page-section profile-layout">
-      <aside className="side-panel">
-        <p className="eyebrow">Profile</p>
-        <h1>{user?.first_name} {user?.last_name}</h1>
-        <p>{user?.email}</p>
-        <p>{user?.phone}</p>
-        <p>{user?.address || 'No default address yet'}</p>
+      <aside className="profile-card">
+        <div className="profile-avatar">
+          <UserRound size={42} />
+        </div>
+        <p className="eyebrow">Customer profile</p>
+        <h1>{fullName}</h1>
+        <p className="muted">Manage account details, delivery addresses, and recent FoodDash orders.</p>
+
+        <div className="profile-meta">
+          <span><Mail size={18} /> {user?.email}</span>
+          <span><Phone size={18} /> {user?.phone || 'Phone not added'}</span>
+          <span><MapPin size={18} /> {user?.address || 'No default address yet'}</span>
+        </div>
+
+        <div className="profile-stat-grid">
+          <div>
+            <strong>{orders.length}</strong>
+            <span>Orders</span>
+          </div>
+          <div>
+            <strong>{addresses.length}</strong>
+            <span>Addresses</span>
+          </div>
+        </div>
       </aside>
 
       <div className="profile-stack">
         {error && <p className="alert error">{error}</p>}
         {success && <p className="alert success">{success}</p>}
 
-        <form className="checkout-form" onSubmit={submitProfile}>
+        <form className="checkout-form profile-form-card" onSubmit={submitProfile}>
           <div className="section-heading compact">
             <div>
               <p className="eyebrow">Account details</p>
@@ -172,7 +193,7 @@ export default function ProfilePage() {
           <button type="submit" className="button primary">Save profile</button>
         </form>
 
-        <form className="checkout-form" onSubmit={submitAddress}>
+        <form className="checkout-form profile-form-card" onSubmit={submitAddress}>
           <div className="section-heading compact">
             <div>
               <p className="eyebrow">Saved addresses</p>
@@ -209,29 +230,39 @@ export default function ProfilePage() {
           )}
         </form>
 
-        <div className="order-list">
-          {addresses.map((address) => (
-            <div className="order-row" key={address.address_id}>
-              <div>
-                <strong>{address.label} {address.is_default ? '(Default)' : ''}</strong>
-                <p>{address.address}</p>
-                <p>{address.city || '-'} {address.pincode || ''}</p>
-              </div>
-              <div className="table-actions">
-                <button type="button" className="button" onClick={() => editAddress(address)}>Edit</button>
-                <button type="button" className="button danger" onClick={() => removeAddress(address.address_id)}>Delete</button>
-              </div>
+        <section className="profile-card-section profile-span">
+          <div className="profile-card-title">
+            <div>
+              <p className="eyebrow">Address book</p>
+              <h2>Saved delivery addresses</h2>
             </div>
-          ))}
-          {!addresses.length && <p className="muted">No saved addresses yet.</p>}
-        </div>
+            <Home size={24} />
+          </div>
+          <div className="order-list">
+            {addresses.map((address) => (
+              <div className="order-row profile-address-row" key={address.address_id}>
+                <div>
+                  <strong>{address.label} {address.is_default ? '(Default)' : ''}</strong>
+                  <p>{address.address}</p>
+                  <p>{address.city || '-'} {address.pincode || ''}</p>
+                </div>
+                <div className="table-actions">
+                  <button type="button" className="button" onClick={() => editAddress(address)}>Edit</button>
+                  <button type="button" className="button danger" onClick={() => removeAddress(address.address_id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+            {!addresses.length && <p className="muted">No saved addresses yet.</p>}
+          </div>
+        </section>
 
-        <div>
-          <div className="section-heading compact">
+        <section className="profile-card-section profile-span">
+          <div className="profile-card-title">
             <div>
               <p className="eyebrow">Order history</p>
               <h2>Your recent orders</h2>
             </div>
+            <ShoppingBag size={24} />
           </div>
           <div className="order-list">
             {orders.map((order) => (
@@ -246,7 +277,7 @@ export default function ProfilePage() {
             ))}
             {!orders.length && <p className="muted">No orders yet.</p>}
           </div>
-        </div>
+        </section>
       </div>
     </section>
   );

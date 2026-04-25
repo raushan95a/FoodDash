@@ -261,8 +261,27 @@ async function getOrder(restaurantId, orderId) {
   return { ...order, items };
 }
 
+function assertRestaurantStatusTransition(currentStatus, nextStatus) {
+  if (currentStatus === nextStatus) return;
+
+  const allowedTransitions = {
+    pending: ['confirmed', 'cancelled'],
+    confirmed: ['preparing', 'cancelled'],
+    preparing: ['ready', 'cancelled'],
+    ready: [],
+    picked_up: [],
+    delivered: [],
+    cancelled: []
+  };
+
+  if (!allowedTransitions[currentStatus]?.includes(nextStatus)) {
+    throw new AppError(`Cannot change order from ${currentStatus} to ${nextStatus}`, 400);
+  }
+}
+
 async function updateOrderStatus(restaurantId, orderId, status) {
-  await getOrder(restaurantId, orderId);
+  const order = await getOrder(restaurantId, orderId);
+  assertRestaurantStatusTransition(order.status, status);
 
   const fields = ['status = :status'];
   if (status === 'delivered') fields.push('actual_delivery_time = NOW()');

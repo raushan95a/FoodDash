@@ -302,7 +302,53 @@ async function getOrder(orderId) {
   return { ...order, items };
 }
 
+function assertAdminStatusTransition(currentStatus, nextStatus) {
+  if (currentStatus === nextStatus) return;
+
+  const allowedTransitions = {
+    pending: ['confirmed', 'cancelled'],
+    confirmed: ['preparing', 'cancelled'],
+    preparing: ['ready', 'cancelled'],
+    ready: ['picked_up', 'cancelled'],
+    picked_up: ['delivered', 'cancelled'],
+    delivered: [],
+    cancelled: []
+  };
+
+  if (!allowedTransitions[currentStatus]?.includes(nextStatus)) {
+    throw new AppError(`Cannot change order from ${currentStatus} to ${nextStatus}`, 400);
+  }
+}
+
+function isClosedOrderStatus(status) {
+  return ['delivered', 'cancelled'].includes(status);
+}
+
 async function updateOrderStatus(orderId, payload) {
+  const currentOrder = await getOrder(orderId);
+  const nextStatus = payload.status;
+  const nextAgentId = payload.delivery_agent_id ?? currentOrder.delivery_agent_id;
+
+  assertAdminStatusTransition(currentOrder.status, nextStatus);
+
+  if (payload.delivery_agent_id !== undefined && payload.delivery_agent_id !== null) {
+    const [agent] = await query(
+      'SELECT agent_id, is_available FROM deliveryagents WHERE agent_id = :agentId',
+      { agentId: payload.delivery_agent_id }
+    );
+
+    if (!agent) throw new AppError('Delivery agent not found', 404);
+
+    const isSameAgent = Number(currentOrder.delivery_agent_id) === Number(payload.delivery_agent_id);
+    if (!isSameAgent && !agent.is_available) {
+      throw new AppError('Delivery agent is not available', 400);
+    }
+  }
+
+  if (payload.delivery_agent_id !== undefined && payload.delivery_agent_id !== null && isClosedOrderStatus(nextStatus)) {
+    throw new AppError('Cannot assign a delivery agent to a closed order', 400);
+  }
+
   const fields = ['status = :status'];
   const params = { orderId, status: payload.status };
 
@@ -318,6 +364,21 @@ async function updateOrderStatus(orderId, payload) {
     params
   );
   if (!result.affectedRows) throw new AppError('Order not found', 404);
+
+  if (currentOrder.delivery_agent_id && currentOrder.delivery_agent_id !== nextAgentId) {
+    await query(
+      'UPDATE deliveryagents SET is_available = TRUE WHERE agent_id = :agentId',
+      { agentId: currentOrder.delivery_agent_id }
+    );
+  }
+
+  if (nextAgentId) {
+    await query(
+      'UPDATE deliveryagents SET is_available = :isAvailable WHERE agent_id = :agentId',
+      { agentId: nextAgentId, isAvailable: isClosedOrderStatus(nextStatus) }
+    );
+  }
+
   return getOrder(orderId);
 }
 

@@ -13,6 +13,7 @@ export default function RestaurantDetailPage() {
   const [menu, setMenu] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('success');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -26,8 +27,9 @@ export default function RestaurantDetailPage() {
   }, [id]);
 
   function handleAdd(item) {
-    addItem(restaurant, item);
-    setMessage(`${item.item_name} added to cart`);
+    const result = addItem(restaurant, item);
+    setMessageType(result.success ? 'success' : 'error');
+    setMessage(result.message);
     window.setTimeout(() => setMessage(''), 1800);
   }
 
@@ -50,7 +52,7 @@ export default function RestaurantDetailPage() {
         <strong>{formatCurrency(restaurant.delivery_fee)} delivery</strong>
       </div>
 
-      {message && <p className="alert success">{message}</p>}
+      {message && <p className={`alert ${messageType}`}>{message}</p>}
 
       <div className="content-columns">
         <div>

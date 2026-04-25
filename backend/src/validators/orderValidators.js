@@ -14,14 +14,6 @@ const createOrderSchema = Joi.object({
   ).min(1).required()
 });
 
-const updateOrderStatusSchema = Joi.object({
-  status: Joi.string()
-    .valid('pending', 'confirmed', 'preparing', 'ready', 'picked_up', 'delivered', 'cancelled')
-    .required(),
-  delivery_agent_id: Joi.number().integer().positive().allow(null)
-});
-
 module.exports = {
-  createOrderSchema,
-  updateOrderStatusSchema
+  createOrderSchema
 };
